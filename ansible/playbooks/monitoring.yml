@@ -1,0 +1,57 @@
+- name: Мониторинг
+  hosts: monitoring
+  become: true
+
+  tasks:
+    - name: Каталог проекта
+      ansible.builtin.file:
+        path: /opt/monitoring
+        state: directory
+        mode: "0755"
+
+    - name: Конфиг Prometheus
+      ansible.builtin.template:
+        src: monitoring/prometheus.yml.j2
+        dest: /opt/monitoring/prometheus.yml
+        mode: "0644"
+      notify: Перезапуск prometheus
+
+    - name: Provisioning Grafana
+      ansible.builtin.copy:
+        src: monitoring/provisioning/
+        dest: /opt/monitoring/provisioning/
+        mode: "0644"
+        directory_mode: "0755"
+      notify: Перезапуск grafana
+
+    - name: Пароль Grafana
+      ansible.builtin.template:
+        src: monitoring/grafana.env.j2
+        dest: /opt/monitoring/grafana.env
+        mode: "0600"
+      no_log: true
+
+    - name: Compose мониторинга
+      ansible.builtin.template:
+        src: monitoring/compose.yml.j2
+        dest: /opt/monitoring/compose.yml
+        mode: "0644"
+
+    - name: Проект мониторинга
+      community.docker.docker_compose_v2:
+        project_src: /opt/monitoring
+
+  handlers:
+    - name: Перезапуск prometheus
+      community.docker.docker_compose_v2:
+        project_src: /opt/monitoring
+        services:
+          - prometheus
+        state: restarted
+
+    - name: Перезапуск grafana
+      community.docker.docker_compose_v2:
+        project_src: /opt/monitoring
+        services:
+          - grafana
+        state: restarted

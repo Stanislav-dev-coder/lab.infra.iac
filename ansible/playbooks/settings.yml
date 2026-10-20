@@ -1,0 +1,10 @@
+- name: Настройки GitLab
+  hosts: localhost
+  connection: local
+  gather_facts: false
+
+  tasks:
+    - name: Terraform GitLab
+      community.general.terraform:
+        project_path: "{{ playbook_dir }}/../../terraform/gitlab"
+        check_destroy: true

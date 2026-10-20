@@ -1,0 +1,37 @@
+- name: Приложение
+  hosts: app
+  become: true
+
+  tasks:
+    - name: Вход в Registry
+      community.docker.docker_login:
+        registry_url: registry.{{ domain }}
+        username: "{{ registry_username }}"
+        password: "{{ registry_password }}"
+      no_log: true
+
+    - name: Ожидание образа
+      community.docker.docker_image_pull:
+        name: "{{ app_image }}"
+        tag: "{{ app_version }}"
+        pull: not_present
+      register: app_pull
+      until: app_pull is succeeded
+      retries: 30
+      delay: 20
+
+    - name: Каталог проекта
+      ansible.builtin.file:
+        path: /opt/app
+        state: directory
+        mode: "0755"
+
+    - name: Compose приложения
+      ansible.builtin.template:
+        src: app/compose.yml.j2
+        dest: /opt/app/compose.yml
+        mode: "0644"
+
+    - name: Проект приложения
+      community.docker.docker_compose_v2:
+        project_src: /opt/app

@@ -1,0 +1,7 @@
+services:
+  app:
+    image: {{ app_image }}:{{ app_version }}
+    container_name: app
+    restart: unless-stopped
+    ports:
+      - "{{ routes.app.port }}:8080"

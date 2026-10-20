@@ -1,0 +1,37 @@
+services:
+  gitlab:
+    image: {{ gitlab_image }}
+    container_name: gitlab
+    hostname: gitlab.{{ domain }}
+    restart: unless-stopped
+    shm_size: 256m
+    ports:
+      - "80:80"
+      - "5050:5050"
+      - "{{ gitlab_ssh_port }}:22"
+    volumes:
+      - config:/etc/gitlab
+      - logs:/var/log/gitlab
+      - data:/var/opt/gitlab
+    env_file: gitlab.env
+    environment:
+      GITLAB_OMNIBUS_CONFIG: |
+        external_url 'https://gitlab.{{ domain }}'
+        registry_external_url 'https://registry.{{ domain }}'
+        letsencrypt['enable'] = false
+        nginx['listen_https'] = false
+        nginx['listen_port'] = 80
+        nginx['real_ip_trusted_addresses'] = ['{{ hostvars.router.nics.lab_20 }}']
+        nginx['real_ip_header'] = 'X-Real-IP'
+        registry_nginx['listen_https'] = false
+        registry_nginx['listen_port'] = 5050
+        registry_nginx['real_ip_trusted_addresses'] = ['{{ hostvars.router.nics.lab_20 }}']
+        registry_nginx['real_ip_header'] = 'X-Real-IP'
+        gitlab_rails['trusted_proxies'] = ['{{ hostvars.router.nics.lab_20 }}']
+        gitlab_rails['gitlab_shell_ssh_port'] = {{ gitlab_ssh_port }}
+        prometheus_monitoring['enable'] = false
+
+volumes:
+  config:
+  logs:
+  data:

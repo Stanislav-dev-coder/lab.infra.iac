@@ -1,0 +1,12 @@
+concurrent = 1
+
+[[runners]]
+  name = "runner"
+  url = "https://gitlab.{{ domain }}"
+  token = "{{ runner_token }}"
+  executor = "docker"
+  request_concurrency = 2
+  [runners.docker]
+    image = "{{ runner_job_image }}"
+    privileged = true
+    volumes = ["/certs/client", "/cache"]

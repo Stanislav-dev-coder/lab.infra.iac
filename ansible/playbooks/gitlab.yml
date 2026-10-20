@@ -1,0 +1,58 @@
+- name: GitLab
+  hosts: gitlab
+  become: true
+
+  tasks:
+    - name: Каталог проекта
+      ansible.builtin.file:
+        path: /opt/gitlab
+        state: directory
+        mode: "0755"
+
+    - name: Пароль root
+      ansible.builtin.template:
+        src: gitlab/gitlab.env.j2
+        dest: /opt/gitlab/gitlab.env
+        mode: "0600"
+      no_log: true
+
+    - name: Compose GitLab
+      ansible.builtin.template:
+        src: gitlab/compose.yml.j2
+        dest: /opt/gitlab/compose.yml
+        mode: "0644"
+
+    - name: Проект GitLab
+      community.docker.docker_compose_v2:
+        project_src: /opt/gitlab
+        wait: true
+        wait_timeout: 900
+
+    - name: Проверка токена администратора
+      ansible.builtin.uri:
+        url: https://gitlab.{{ domain }}/api/v4/personal_access_tokens/self
+        headers:
+          PRIVATE-TOKEN: "{{ gitlab_admin_token }}"
+        status_code: [200, 401]
+      register: admin_token_check
+      until: admin_token_check.status in [200, 401]
+      retries: 60
+      delay: 10
+      delegate_to: localhost
+      become: false
+      check_mode: false
+      no_log: true
+
+    - name: Токен администратора
+      community.docker.docker_container_exec:
+        container: gitlab
+        argv:
+          - gitlab-rails
+          - runner
+          - "{{ lookup('ansible.builtin.file', 'gitlab/token.rb') }}"
+        env:
+          GITLAB_ADMIN_TOKEN: "{{ gitlab_admin_token }}"
+      register: admin_token
+      changed_when: "'created' in admin_token.stdout"
+      no_log: true
+      when: admin_token_check.status == 401

@@ -1,0 +1,15 @@
+http:
+  routers:
+{% for name, route in routes.items() %}
+    {{ name }}:
+      rule: Host(`{{ name }}.{{ domain }}`)
+      entryPoints: [websecure]
+      service: {{ name }}
+{% endfor %}
+  services:
+{% for name, route in routes.items() %}
+    {{ name }}:
+      loadBalancer:
+        servers:
+          - url: http://{{ hostvars[route.host].address }}:{{ route.port }}
+{% endfor %}

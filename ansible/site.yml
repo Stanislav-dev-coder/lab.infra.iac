@@ -1,0 +1,6 @@
+- ansible.builtin.import_playbook: playbooks/router.yml
+- ansible.builtin.import_playbook: playbooks/internal.yml
+- ansible.builtin.import_playbook: playbooks/monitoring.yml
+- ansible.builtin.import_playbook: playbooks/gitlab.yml
+- ansible.builtin.import_playbook: playbooks/settings.yml
+- ansible.builtin.import_playbook: playbooks/runner.yml

@@ -1,0 +1,7 @@
+architecture: x86_64
+creation_date: 1791363018
+properties:
+  description: Ubuntu 26.04 server cloudimg
+  os: ubuntu
+  release: "26.04"
+  variant: cloud

@@ -1,0 +1,8 @@
+services:
+  runner:
+    image: {{ runner_image }}
+    container_name: runner
+    restart: unless-stopped
+    volumes:
+      - ./config:/etc/gitlab-runner
+      - /var/run/docker.sock:/var/run/docker.sock

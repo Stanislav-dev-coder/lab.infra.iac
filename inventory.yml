@@ -1,0 +1,92 @@
+all:
+  vars:
+    domain: lab.emptyvessel-playground.ru
+    image: ubuntu-26.04-cloud
+    pool:
+      name: infra
+      driver: btrfs
+      size: 60GiB
+    networks:
+      lab_10: { address: 10.10.0.1, prefix: 24 }
+      lab_20: { address: 10.20.0.1, prefix: 24 }
+    ssh_key: ~/.ssh/ubuntu-cloud
+    ansible_user: ubuntu
+    ansible_ssh_private_key_file: "{{ ssh_key }}"
+    ansible_ssh_extra_args: -o StrictHostKeyChecking=accept-new
+    ansible_python_interpreter: /usr/bin/python3
+    env_file: "{{ inventory_dir }}/.env"
+    host_network: "{{ networks.lab_10.address }}/{{ networks.lab_10.prefix }}"
+    lan_network: "{{ networks.lab_20.address }}/{{ networks.lab_20.prefix }}"
+    node_exporter_version: 1.12.1
+    routes:
+      gitlab: { host: gitlab, port: 80 }
+      registry: { host: gitlab, port: 5050 }
+      grafana: { host: monitoring, port: 3000 }
+      app: { host: app, port: 8080 }
+
+  hosts:
+    router:
+      ansible_host: "{{ nics.lab_10 }}"
+      cpu: 1
+      memory: 1GiB
+      disk: 5GiB
+      nics:
+        lab_10: 10.10.0.2
+        lab_20: 10.20.0.2
+      wan_interface: "{{ ansible_facts.default_ipv4.interface }}"
+      node_exporter_web_listen_address: "{{ nics.lab_20 }}:9100"
+      traefik_version: v3.7.15
+      traefik_release: https://github.com/traefik/traefik/releases/download/{{ traefik_version }}
+      acme_server: https://acme-v02.api.letsencrypt.org/directory
+      acme_backup: "{{ inventory_dir }}/backup/acme.json"
+      acme_email: "{{ lookup('ansible.builtin.ini', 'ACME_EMAIL', file=env_file, type='properties') }}"
+      timeweb_token: "{{ lookup('ansible.builtin.ini', 'TIMEWEBCLOUD_AUTH_TOKEN', file=env_file, type='properties') }}"
+
+  children:
+    internal:
+      vars:
+        ansible_host: "{{ address }}"
+        node_exporter_image: prom/node-exporter:v{{ node_exporter_version }}
+        ansible_ssh_common_args: >-
+          -o ProxyCommand="ssh -W %h:%p -q -i {{ ssh_key }} -o StrictHostKeyChecking=accept-new {{ ansible_user }}@{{ hostvars.router.nics.lab_10 }}"
+      hosts:
+        app:
+          cpu: 1
+          memory: 1GiB
+          disk: 5GiB
+          address: 10.20.0.10
+          protected: false
+          app_image: registry.{{ domain }}/root/app
+          app_version: v1.0.0
+          registry_username: "{{ lookup('ansible.builtin.pipe', 'terraform -chdir=' ~ inventory_dir ~ '/terraform/gitlab output -raw deploy_username') }}"
+          registry_password: "{{ lookup('ansible.builtin.pipe', 'terraform -chdir=' ~ inventory_dir ~ '/terraform/gitlab output -raw deploy_token') }}"
+        gitlab:
+          cpu: 6
+          memory: 8GiB
+          disk: 20GiB
+          address: 10.20.0.11
+          protected: false
+          gitlab_image: gitlab/gitlab-ce:19.5.0-ce.0
+          gitlab_ssh_port: 2222
+          gitlab_root_password: "{{ lookup('ansible.builtin.ini', 'GITLAB_ROOT_PASSWORD', file=env_file, type='properties') }}"
+          gitlab_admin_token: "{{ lookup('ansible.builtin.ini', 'GITLAB_ADMIN_TOKEN', file=env_file, type='properties') }}"
+        monitoring:
+          cpu: 2
+          memory: 4GiB
+          disk: 15GiB
+          address: 10.20.0.12
+          protected: false
+          prometheus_image: prom/prometheus:v3.15.0
+          prometheus_retention_time: 7d
+          prometheus_retention_size: 5GB
+          grafana_image: grafana/grafana:13.2.4
+          grafana_admin_password: "{{ lookup('ansible.builtin.ini', 'GRAFANA_ADMIN_PASSWORD', file=env_file, type='properties') }}"
+        runner:
+          cpu: 2
+          memory: 2GiB
+          disk: 15GiB
+          address: 10.20.0.13
+          protected: false
+          runner_image: gitlab/gitlab-runner:v19.5.0
+          runner_job_image: alpine:3.24
+          runner_token: "{{ lookup('ansible.builtin.pipe', 'terraform -chdir=' ~ inventory_dir ~ '/terraform/gitlab output -raw runner_token') }}"

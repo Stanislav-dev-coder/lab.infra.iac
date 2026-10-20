@@ -1,0 +1,30 @@
+#!/usr/sbin/nft -f
+
+flush ruleset
+
+table ip filter {
+  chain input {
+    type filter hook input priority filter; policy drop;
+    iif "lo" accept
+    ct state invalid drop
+    ct state established,related accept
+    icmp type echo-request accept
+    udp sport 67 udp dport 68 accept
+    ip saddr {{ host_network }} tcp dport 22 accept
+    tcp dport { 80, 443 } accept
+    ip saddr {{ hostvars.monitoring.address }} tcp dport 9100 accept
+  }
+
+  chain forward {
+    type filter hook forward priority filter; policy drop;
+    ct state established,related accept
+    ip saddr {{ lan_network }} oifname "{{ wan_interface }}" accept
+  }
+}
+
+table ip nat {
+  chain postrouting {
+    type nat hook postrouting priority srcnat; policy accept;
+    ip saddr {{ lan_network }} oifname "{{ wan_interface }}" masquerade
+  }
+}

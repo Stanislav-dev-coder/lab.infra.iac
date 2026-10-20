@@ -1,0 +1,69 @@
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+._*
+.Spotlight-V100
+.Trashes
+.fseventsd
+
+# Windows
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+$RECYCLE.BIN/
+*.lnk
+
+# Linux
+*~
+.directory
+.Trash-*
+.nfs*
+
+# VS Code
+.vscode/
+*.code-workspace
+.history/
+
+# Прочие
+*.bak
+*.tmp
+
+# Terraform 
+
+.terraform/
+*.tfstate
+*.tfstate.*
+*.tfplan
+*.tfvars
+crash.log
+crash.*.log
+override.tf
+override.tf.json
+*_override.tf
+*_override.tf.json
+.terraformrc
+terraform.rc
+
+# Ansible 
+
+ansible/collections/
+*.retry
+
+# Стенд 
+
+backup/
+terraform/platform/files/*
+!terraform/platform/files/metadata.yaml
+!terraform/platform/files/ubuntu-cloud.gpg
+
+# Личные заметки 
+
+TODO.md
+.todo
+
+# Секреты 
+
+.env
+.env.*
+!.env.example

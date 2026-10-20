@@ -1,0 +1,127 @@
+- name: Роутер
+  hosts: router
+  become: true
+
+  roles:
+    - prometheus.prometheus.node_exporter
+
+  tasks:
+    - name: Форвардинг пакетов
+      ansible.posix.sysctl:
+        name: net.ipv4.ip_forward
+        value: "1"
+        sysctl_file: /etc/sysctl.d/60-forward.conf
+
+    - name: Правила nftables
+      ansible.builtin.template:
+        src: router/nftables.conf.j2
+        dest: /etc/nftables.conf
+        mode: "0644"
+        validate: nft -c -f %s
+      notify: Перезагрузка nftables
+
+    - name: Служба nftables
+      ansible.builtin.systemd_service:
+        name: nftables
+        enabled: true
+        state: started
+
+    - name: Пользователь traefik
+      ansible.builtin.user:
+        name: traefik
+        system: true
+        shell: /usr/sbin/nologin
+        create_home: false
+
+    - name: Архив Traefik
+      ansible.builtin.get_url:
+        url: "{{ traefik_release }}/traefik_{{ traefik_version }}_linux_amd64.tar.gz"
+        checksum: "sha256:{{ traefik_release }}/traefik_{{ traefik_version }}_checksums.txt"
+        dest: /opt/traefik_{{ traefik_version }}_linux_amd64.tar.gz
+        mode: "0644"
+
+    - name: Бинарник Traefik
+      ansible.builtin.unarchive:
+        src: /opt/traefik_{{ traefik_version }}_linux_amd64.tar.gz
+        dest: /usr/local/bin
+        remote_src: true
+        include: traefik
+      notify: Перезапуск traefik
+
+    - name: Каталог конфигов Traefik
+      ansible.builtin.file:
+        path: /etc/traefik
+        state: directory
+        mode: "0755"
+
+    - name: Токен Timeweb Cloud
+      ansible.builtin.template:
+        src: router/traefik.env.j2
+        dest: /etc/traefik/traefik.env
+        mode: "0600"
+      no_log: true
+      notify: Перезапуск traefik
+
+    - name: Статический конфиг Traefik
+      ansible.builtin.template:
+        src: router/traefik.yml.j2
+        dest: /etc/traefik/traefik.yml
+        mode: "0644"
+      notify: Перезапуск traefik
+
+    - name: Маршруты Traefik
+      ansible.builtin.template:
+        src: router/routes.yml.j2
+        dest: /etc/traefik/routes.yml
+        mode: "0644"
+
+    - name: Юнит Traefik
+      ansible.builtin.template:
+        src: router/traefik.service.j2
+        dest: /etc/systemd/system/traefik.service
+        mode: "0644"
+      notify: Перезапуск traefik
+
+    - name: Каталог данных Traefik
+      ansible.builtin.file:
+        path: /var/lib/traefik
+        state: directory
+        owner: traefik
+        group: traefik
+        mode: "0700"
+
+    - name: Восстановление acme.json
+      ansible.builtin.copy:
+        src: "{{ acme_backup }}"
+        dest: /var/lib/traefik/acme.json
+        owner: traefik
+        group: traefik
+        mode: "0600"
+        force: false
+      when: acme_backup is file
+
+    - name: Служба Traefik
+      ansible.builtin.systemd_service:
+        name: traefik
+        enabled: true
+        state: started
+        daemon_reload: true
+
+    - name: Копия acme.json на хост
+      ansible.builtin.fetch:
+        src: /var/lib/traefik/acme.json
+        dest: "{{ acme_backup }}"
+        flat: true
+        fail_on_missing: false
+
+  handlers:
+    - name: Перезагрузка nftables
+      ansible.builtin.systemd_service:
+        name: nftables
+        state: reloaded
+
+    - name: Перезапуск traefik
+      ansible.builtin.systemd_service:
+        name: traefik
+        state: restarted
+        daemon_reload: true

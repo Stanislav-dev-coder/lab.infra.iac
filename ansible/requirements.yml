@@ -1,0 +1,9 @@
+collections:
+  - name: ansible.posix
+    version: 2.2.2
+  - name: prometheus.prometheus
+    version: 0.30.2
+  - name: community.general
+    version: 13.5.0
+  - name: community.docker
+    version: 5.4.0

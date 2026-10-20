@@ -1,0 +1,39 @@
+- name: Машины за роутером
+  hosts: internal
+  become: true
+
+  tasks:
+    - name: Репозиторий Docker
+      ansible.builtin.deb822_repository:
+        name: docker
+        types: deb
+        uris: https://download.docker.com/linux/ubuntu
+        suites: "{{ ansible_facts.distribution_release }}"
+        components: stable
+        signed_by: https://download.docker.com/linux/ubuntu/gpg
+
+    - name: Пакеты Docker
+      ansible.builtin.apt:
+        name:
+          - docker-ce
+          - docker-ce-cli
+          - containerd.io
+          - docker-buildx-plugin
+          - docker-compose-plugin
+        update_cache: true
+
+    - name: Каталог node_exporter
+      ansible.builtin.file:
+        path: /opt/node_exporter
+        state: directory
+        mode: "0755"
+
+    - name: Compose node_exporter
+      ansible.builtin.template:
+        src: internal/node_exporter.yml.j2
+        dest: /opt/node_exporter/compose.yml
+        mode: "0644"
+
+    - name: Проект node_exporter
+      community.docker.docker_compose_v2:
+        project_src: /opt/node_exporter

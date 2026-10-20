@@ -1,0 +1,27 @@
+- name: Runner
+  hosts: runner
+  become: true
+
+  tasks:
+    - name: Каталог конфига
+      ansible.builtin.file:
+        path: /opt/runner/config
+        state: directory
+        mode: "0700"
+
+    - name: Конфиг runner
+      ansible.builtin.template:
+        src: runner/config.toml.j2
+        dest: /opt/runner/config/config.toml
+        mode: "0600"
+      no_log: true
+
+    - name: Compose runner
+      ansible.builtin.template:
+        src: runner/compose.yml.j2
+        dest: /opt/runner/compose.yml
+        mode: "0644"
+
+    - name: Проект runner
+      community.docker.docker_compose_v2:
+        project_src: /opt/runner
